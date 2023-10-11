@@ -1,6 +1,6 @@
 import numpy as np
-import scipy
-
+from scipy.sparse import diags, csr_matrix
+from scipy.sparse.linalg import spsolve
 
 # Solves the laplace equation uxx + uyy = 0 on a rectangle with given
 # width and height
@@ -15,6 +15,7 @@ boundary_spec = {
     'West': 'Dirichlet'
 }
 Picture: 
+
                      Dirichlet
                 -----------------
                 |                |
@@ -24,6 +25,7 @@ Picture:
                 |                | 
                 ------------------
                      Neumann 
+
 """
 
 class LaplaceSolver:
@@ -105,15 +107,16 @@ class LaplaceSolver:
     # Values is a vector of size N or M 
     def set_Dirichlet_boundary(self, wall, values): 
         self.U[self.boundary_index[wall]] = values
-        
-    def get_Dirichlet_boundary(self, wall):
+    
+    def get_Dirichlet_boundary(self, wall): 
         return self.U[self.boundary_index[wall]]
     
     def set_Neumann_boundary(self, wall, values):
         self.dU[self.boundary_index[wall]] = values
-        
+    
     def get_Neumann_boundary(self, wall):
-        return self.dU[self.boundary_index[wall]] = values        
+        return self.dU[self.boundary_index[wall]]
+        
     # Implementing only x derivative for now
     # This could be implemented a lot more readable, but this was such a 
     # blast
@@ -130,30 +133,37 @@ class LaplaceSolver:
     """
     def calculate_Neumann_boundary(self, wall):
         i1 = self.boundary_index[wall][1] # 0 left side, -1 right side
-        plus_minus_one = + 1 * (i1 >= 0) - 1 * (i1 < 0) # It is so fun!
-        i2 = i1 + plus_minus_one 
+        i2 = i1 + 1*(i1 >= 0) - 1*(i1 < 0) # It is so fun!
         u_boundary = self.U[self.boundary_index[wall]] # u_i
         u_internal = self.U[:, i2] # u_(i-1) or u_(i+1)
+        # u_internal = self.U[:, i1 + 1*(i1 >= 0) - 1*(i1 < 0)] # u_(i-1) or u_(i+1)
         
-        u_neumann = (plus_minus_one) * (u_internal - u_boundary) * (1 / self.dx) # Tihi
+        u_neumann = (1*(i1 >= 0) - 1*(i1 < 0))*(u_internal - u_boundary)*(1/self.dx) # Tihi
         self.set_Neumann_boundary(wall, u_neumann) # Maybe not needed
         return u_neumann
-    
+
     # Just returns the solution vectors, note U is the actual matrix grid
-    # with both internal and external points that we want to plot
+    # that we want to plot
     def get_solutions(self):
         return self.u, self.U
     
-    # Private method to calculate the matrices for solving the system
     def __create_matrices(self):
-        A = np.zeros((self.dim_X * self.dim_Y, self.dim_X * self.dim_Y))
-        b = np.zeros((self.dim_X * self.dim_Y, 1))
-        return A,b
+        """
+        Create sparse matrices for solving the system using the finite difference method.
+        """
+        # Diagonals for the Laplacian matrix
+        diagonals = [np.ones(self.dim_X * self.dim_Y) * (-2 / self.dx**2),
+                     np.ones(self.dim_X * self.dim_Y - 1) / self.dx**2,
+                     np.ones(self.dim_X * self.dim_Y - self.dim_X) / self.dx**2]
 
-    # Extra parameters maybe? Solves the system
+        # Create the Laplacian matrix
+        self.Laplacian = diags(diagonals, [0, 1, -self.dim_X], shape=(self.dim_X * self.dim_Y, self.dim_X * self.dim_Y))
+
+
     def solve(self):
-        A,b = self.__create_matrices()
-        return np.linalg.solve(A,b)
+        pass
+
+
 
 if __name__ == "__main__":
     width, height = 1, 2  # Number of internal grid points in x and y dimensions
