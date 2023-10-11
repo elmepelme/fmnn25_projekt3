@@ -105,10 +105,15 @@ class LaplaceSolver:
     # Values is a vector of size N or M 
     def set_Dirichlet_boundary(self, wall, values): 
         self.U[self.boundary_index[wall]] = values
+        
+    def get_Dirichlet_boundary(self, wall):
+        return self.U[self.boundary_index[wall]]
     
     def set_Neumann_boundary(self, wall, values):
         self.dU[self.boundary_index[wall]] = values
         
+    def get_Neumann_boundary(self, wall):
+        return self.dU[self.boundary_index[wall]] = values        
     # Implementing only x derivative for now
     # This could be implemented a lot more readable, but this was such a 
     # blast
