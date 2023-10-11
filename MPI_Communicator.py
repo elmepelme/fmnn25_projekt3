@@ -27,20 +27,20 @@ if __name__ == '__main__':
         if rank == 0: # room2
             print("Rank is 0")
             u, U = Omega_2.get_solutions()
-            hr = int(U.shape[0]/2)
-            if(i==0): # first iteration
+            hr = int(U.shape[0]/2) # half row index
+            if(i==0): # 1st iter
                 Omega_2.solve()
             else:
                 
-                bound1 = comm.recv(source = 1)
-                bound3 = comm.recv(source = 2)
+                bound_1 = comm.recv(source = 1)
+                bound_3 = comm.recv(source = 2)
                 # bound4 = comm.recv(source = 3)
                 
-                Omega_2.set_Dirichlet_boundary('West', np.append(U[0:hr-1,0], bound1))
-                Omega_2.set_Dirichlet_boundary('East', np.append(bound3, U[hr+1:-1,-1]))
+                Omega_2.set_Dirichlet_boundary('West', np.append(U[0:hr-1,0], bound_1))
+                Omega_2.set_Dirichlet_boundary('East', np.append(bound_3, U[hr+1:-1,-1]))
                 
                 Omega_2.solve() 
-            # Gets whole wall of Omega_2,and we only want to send the Gamma_1 boundary
+            # Gets whole wall of Omega_2 and we only want to send the Gamma_1 boundary
             bounds_r1 = Omega_2.calculate_Neumann_boundary('West')[hr:-1]
             bounds_r3 = Omega_2.calculate_Neumann_boundary('East')[0:hr]
             comm.send(bounds_r1, dest = 1) # dest = 0?
@@ -52,10 +52,8 @@ if __name__ == '__main__':
        
             Omega_1.set_Neumann_boundary('East', bounds_r1)
             Omega_1.solve()
-            bound1 = Omega_1.get_Dirichlet_boundary('East')
-            comm.send(bound1, dest = 0)
-            # bound1_old = bound1
-            #print('Room1: {}'.format(room1.getMatrix()))
+            bound_1 = Omega_1.get_Dirichlet_boundary('East')
+            comm.send(bound1_, dest = 0)
     
         if rank == 2: #room3
             print("Rank is 2")
@@ -63,8 +61,8 @@ if __name__ == '__main__':
        
             Omega_3.set_Neumann_boundary('West', bounds_r3)
             Omega_3.solve()
-            bound3 = Omega_3.get_Dirichlet_boundary('West')
-            comm.send(bound3, dest = 0)
+            bound_3 = Omega_3.get_Dirichlet_boundary('West')
+            comm.send(bound_3, dest = 0)
 
         if(i == iter-1):
             if rank == 0:
@@ -86,7 +84,7 @@ if __name__ == '__main__':
             import matplotlib.pyplot as plt
 
         def plot_solution(U, title):
-            plt.imshow(U, cmap='viridis', extent=[0, U.shape[1], 0, U.shape[0]], origin='lower')
+            plt.imshow(U, cmap='jet', extent=[0, U.shape[1], 0, U.shape[0]], origin='lower')
             plt.colorbar()
             plt.title(title)
             plt.show()
