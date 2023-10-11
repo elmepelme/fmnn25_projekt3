@@ -53,7 +53,7 @@ if __name__ == '__main__':
             Omega_1.set_Neumann_boundary('East', bounds_r1)
             Omega_1.solve()
             bound_1 = Omega_1.get_Dirichlet_boundary('East')
-            comm.send(bound1_, dest = 0)
+            comm.send(bound_1, dest = 0)
     
         if rank == 2: #room3
             print("Rank is 2")
