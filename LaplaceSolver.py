@@ -161,6 +161,7 @@ class LaplaceSolver:
 
 
     def solve(self):
+        # Should use csr_matrix and spsolve...
         pass
 
 
