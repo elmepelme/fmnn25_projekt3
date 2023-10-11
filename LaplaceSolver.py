@@ -39,10 +39,11 @@ class LaplaceSolver:
         self.dx = dx  # Grid spacing (dx = dy)
         
         # Initialize grid (this includes boundary points)
-        self.N = int(width / dx)
-        self.M = int(height / dx)
+        self.N = int(width / dx) + 1
+        self.M = int(height / dx) + 1
         
         # Dimensions of the (internal) grid points we will solve for
+        # Assuming all Dirichlet boundaries
         self.dim_X = self.N - 2
         self.dim_Y = self.M - 2
         
@@ -101,7 +102,11 @@ class LaplaceSolver:
             'East'  : (slice(None, None, None), -1), #  Equivalent to [:, -1]
             'North' : (0, slice(None, None, None)),  #  Equivalent to [0, :]
             'South' : (-1, slice(None, None, None))  #  Equivalent to [-1, :]
-}
+            }
+        
+        # Define the matrix that approximates the Laplacian
+        size = self.dim_X*self.dim_Y
+        self.A = np.zeros((size, size))
        
     # wall is 'North', 'East', 'South', or 'West'   
     # Values is a vector of size N or M 
@@ -147,18 +152,36 @@ class LaplaceSolver:
     def get_solutions(self):
         return self.u, self.U
     
-    def __create_matrices(self):
-        """
-        Create sparse matrices for solving the system using the finite difference method.
-        """
-        # Diagonals for the Laplacian matrix
-        diagonals = [np.ones(self.dim_X * self.dim_Y) * (-2 / self.dx**2),
-                     np.ones(self.dim_X * self.dim_Y - 1) / self.dx**2,
-                     np.ones(self.dim_X * self.dim_Y - self.dim_X) / self.dx**2]
+    
+    # Assume that this works, this generates the approximation of the Laplace
+    # operator. 
+    def __generate_matrix_A(self):   
+        size = self.dim_X*self.dim_Y
+        # Fill the matrix
+        for i in range(size):
+            # Diagonal value
+            self.A[i, i] = -4
 
-        # Create the Laplacian matrix
-        self.Laplacian = diags(diagonals, [0, 1, -self.dim_X], shape=(self.dim_X * self.dim_Y, self.dim_X * self.dim_Y))
+            # Upper diagonal
+            if i + 1 < size and (i + 1) % self.dim_Y != 0:  # Ensure it doesn't cross block boundary
+                self.A[i, i+1] = 1
 
+            # Lower diagonal
+            if i - 1 >= 0 and i % self.dim_Y != 0:  # Ensure it doesn't cross block boundary
+                self.A[i, i-1] = 1
+
+            # Upper block diagonal (identity matrix)
+            if i + self.dim_Y < size:
+                self.A[i, i + self.dim_Y] = 1
+
+            # Lower block diagonal (identity matrix)
+            if i - self.dim_Y >= 0:
+                self.A[i, i - self.dim_Y] = 1
+
+        return (1  / self.dx**2) * self.A
+    
+    def __generate_matrix_b(self):
+        pass
 
     def solve(self):
         # Should use csr_matrix and spsolve...
@@ -168,12 +191,14 @@ class LaplaceSolver:
 
 if __name__ == "__main__":
     width, height = 1, 2  # Number of internal grid points in x and y dimensions
-    dx = 0.2  # Grid spacing (dx = dy)
+    dx = 1/3  # Grid spacing (dx = dy)
    
     # Initialize solver
     laplace_solver = LaplaceSolver(width, height, dx)
+    print(laplace_solver.generate_matrix_A())
     u, U = laplace_solver.get_solutions()
     # Print the solution (you might want to visualize this using matplotlib)
+    """
     print("Solution grid:")
     print(U)
     print(laplace_solver.boundary_index['East'][1])
@@ -186,3 +211,5 @@ if __name__ == "__main__":
     laplace_solver.U[:,1] = val2
     print(laplace_solver.U)
     print(laplace_solver.calculate_Neumann_boundary('West'))
+    
+    """
