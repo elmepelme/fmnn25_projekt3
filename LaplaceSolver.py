@@ -1,4 +1,6 @@
 import numpy as np
+import scipy
+from scipy import linalg
 from scipy.sparse import diags, csr_matrix
 from scipy.sparse.linalg import spsolve
 
@@ -35,7 +37,7 @@ class LaplaceSolver:
         'East': 'Dirichlet',
         'West': 'Dirichlet'
     }):
-        
+        self.boundary_spec = boundary_spec
         self.dx = dx  # Grid spacing (dx = dy)
         
         # Initialize grid (this includes boundary points)
@@ -50,21 +52,19 @@ class LaplaceSolver:
         """
         Example if all walls Dirichlet:
         
-        N = 5
-        M = 6
-        dim_X = 3
-        dim_Y = 4
+        N = 4
+        M = 4
+        dim_X = 2
+        dim_Y = 2
         
         @ = "boundary", * = "point to solve for". 
         
         Then our grid looks like this:
         
-        @ @ @ @ @
-        @ * * * @
-        @ * * * @
-        @ * * * @
-        @ * * * @
-        @ @ @ @ @
+        @ @ @ @ 
+        @ * * @
+        @ * * @
+        @ @ @ @
         
         Each Neumann condition will change one wall from "@" to "*" 
         which means we will solve for these points
@@ -80,14 +80,10 @@ class LaplaceSolver:
         
         # Vector with approximated solutions
         self.u = np.zeros(self.dim_X * self.dim_Y)
-        # u = [u11, u12, u21, u22, u31, u32];
+        # u = [u11, u12, u21, u22] for example
         
         # Full grid will be here, mostly used to keep track of boundary values
         self.U = np.zeros((self.N, self.M))
-        
-        # The Neumann values
-        self.dU = np.zeros((self.N, self.M))
-        
         """
         The resulting matrix will be: U = 
             [u00, u01, u02, u03;
@@ -96,17 +92,25 @@ class LaplaceSolver:
              u30, u31, u32, u33]
         """
         
+        # The Neumann values (maybe not used)
+        self.dU = np.zeros((self.N, self.M))
+        
         # It's so fun! Less if statements! 
         self.boundary_index = {
-            'West'  : (slice(None, None, None), 0),  #  Equivalent to [:, 0]
-            'East'  : (slice(None, None, None), -1), #  Equivalent to [:, -1]
-            'North' : (0, slice(None, None, None)),  #  Equivalent to [0, :]
-            'South' : (-1, slice(None, None, None))  #  Equivalent to [-1, :]
+            'West'  : (slice(None, None, None), 0),  #  Equivalent to [: ,  0]
+            'East'  : (slice(None, None, None), -1), #  Equivalent to [: , -1]
+            'North' : (0, slice(None, None, None)),  #  Equivalent to [0 ,  :]
+            'South' : (-1, slice(None, None, None))  #  Equivalent to [-1,  :]
             }
         
         # Define the matrix that approximates the Laplacian
         size = self.dim_X*self.dim_Y
         self.A = np.zeros((size, size))
+        self.b = np.zeros((size, 1))
+        
+        # Matrix that is reshaped since it's easier to think about 
+        # the matrix and not the column.
+        self.B = np.zeros((self.dim_X, self.dim_Y))
        
     # wall is 'North', 'East', 'South', or 'West'   
     # Values is a vector of size N or M 
@@ -141,75 +145,112 @@ class LaplaceSolver:
         i2 = i1 + 1*(i1 >= 0) - 1*(i1 < 0) # It is so fun!
         u_boundary = self.U[self.boundary_index[wall]] # u_i
         u_internal = self.U[:, i2] # u_(i-1) or u_(i+1)
-        # u_internal = self.U[:, i1 + 1*(i1 >= 0) - 1*(i1 < 0)] # u_(i-1) or u_(i+1)
         
         u_neumann = (1*(i1 >= 0) - 1*(i1 < 0))*(u_internal - u_boundary)*(1/self.dx) # Tihi
-        self.set_Neumann_boundary(wall, u_neumann) # Maybe not needed
+        self.set_Neumann_boundary(wall, u_neumann)
         return u_neumann
 
     # Just returns the solution vectors, note U is the actual matrix grid
-    # that we want to plot
+    # that we want to plot, contains boundary values, while u only contains
+    # the inner points.
     def get_solutions(self):
         return self.u, self.U
     
     
     # Assume that this works, this generates the approximation of the Laplace
     # operator. 
-    def __generate_matrix_A(self):   
+    def generate_matrix_A(self):   
         size = self.dim_X*self.dim_Y
+        A = np.zeros((size, size))
         # Fill the matrix
         for i in range(size):
             # Diagonal value
-            self.A[i, i] = -4
-
+            A[i, i] = -4
             # Upper diagonal
             if i + 1 < size and (i + 1) % self.dim_Y != 0:  # Ensure it doesn't cross block boundary
-                self.A[i, i+1] = 1
+                A[i, i+1] = 1
 
             # Lower diagonal
             if i - 1 >= 0 and i % self.dim_Y != 0:  # Ensure it doesn't cross block boundary
-                self.A[i, i-1] = 1
+                A[i, i-1] = 1
 
             # Upper block diagonal (identity matrix)
             if i + self.dim_Y < size:
-                self.A[i, i + self.dim_Y] = 1
+                A[i, i + self.dim_Y] = 1
 
             # Lower block diagonal (identity matrix)
             if i - self.dim_Y >= 0:
-                self.A[i, i - self.dim_Y] = 1
+                A[i, i - self.dim_Y] = 1
 
-        return (1  / self.dx**2) * self.A
+        return (1  / self.dx**2) * A
     
-    def __generate_matrix_b(self):
-        pass
-
-    def solve(self):
-        # Should use csr_matrix and spsolve...
-        pass
-
-
-
-if __name__ == "__main__":
-    width, height = 1, 2  # Number of internal grid points in x and y dimensions
-    dx = 1/3  # Grid spacing (dx = dy)
-   
-    # Initialize solver
-    laplace_solver = LaplaceSolver(width, height, dx)
-    print(laplace_solver.generate_matrix_A())
-    u, U = laplace_solver.get_solutions()
-    # Print the solution (you might want to visualize this using matplotlib)
     """
-    print("Solution grid:")
-    print(U)
-    print(laplace_solver.boundary_index['East'][1])
-    val1 = np.ones(5)
-    val2 = 3*np.ones(5)
-    laplace_solver.set_Dirichlet_boundary('East', val1)
-    laplace_solver.U[:,-2] = val2
-    print(laplace_solver.U)
-    laplace_solver.set_Dirichlet_boundary('West', val1)
-    laplace_solver.U[:,1] = val2
-    print(laplace_solver.U)
-    print(laplace_solver.calculate_Neumann_boundary('West'))
+    Easier to work with matrices that we reshape.
+    In the loop we are adding the contributions of each wall one at a time, 
+    so in the corners we will have contributions from both longitudal and 
+    latitudal directions. Those values need to be sent to the right hand side.
+                
+                             (1)
+                              \
+                       (1)--(-4)--(1)
+                              \
+                             (1)     
+    Dirichlet                         
+    If      U = [u00, u01, u02, u03;     
+                 u10, u11, u12, u13;
+                 u20, u21, u22, u23;
+                 u30, u31, u32, u33]  
+    
+    and we have the vector we are solving for u = [u11, u12, u21, u22]
+    Assuming U[:,0] and U[0,:] are Dirichlet walls, then according to the 
+    stencil for u11, we need to send u01 and u10 to b on the row corresponding
+    to the equation for u11 since these values are known. 
+    
+    TO BE ADDED: Neumann conditions
+    
+    This method does this for the matrix B that is then reshaped into a
+    column for the equation system Au = b. 
+    
+    """
+    def generate_matrix_b(self):
+        B = np.zeros((self.dim_X, self.dim_Y))
+        # Define the matrix that approximates the Laplacian
+        for wall, condition in self.boundary_spec.items():
+            if condition == 'Dirichlet':
+                index = self.boundary_index[wall]
+                # Note that the boundary values of the grid are stored on
+                # boundary of the matrix U which contains the grid points!
+                # We take [1:-1] because we want the "inner" boundary points
+                # according to the above stencil.
+                B[index] -= self.U[index][1:-1]
+        
+        b = B.reshape(-1,1) # Back to column
+        return (1 / self.dx ** 2) * b
+            
+# solves Au = b
+    def solve(self):
+        A = self.generate_matrix_A()
+        b = self.generate_matrix_b()
+        u = scipy.linalg.solve(A,b)
+        U_inner = u.reshape(self.dim_X, self.dim_Y)
+        self.U[1:self.N-1, 1:self.M-1] = U_inner
+        return u, U_inner, self.U
+        
+if __name__ == "__main__":
+    width, height = 2, 1  # Number of internal grid points in x and y dimensions
+    dx = 1/2  # Grid spacing (dx = dy)
+    walls = ['North', 'East', 'West', 'South']
+    laplace_solver = LaplaceSolver(width, height, dx)
+    laplace_solver.set_Dirichlet_boundary('East', 100*np.ones(5))
+    print(f'U = \n {laplace_solver.U}')
+    b = laplace_solver.generate_matrix_b()
+    print(b)
+    print(b.reshape(-1,1))
+    u, U_inner, U = laplace_solver.solve()
+    
+    """
+    Dirichlet funkar nu väldigt bra, vi kan se hur varje internal
+    punkt är precis medelvärdet av omringande punkter så som värmeledning
+    ska funka
     
     """
