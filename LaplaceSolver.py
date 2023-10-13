@@ -101,6 +101,8 @@ class LaplaceSolver:
              u10, u11, u12, u13;
              u20, u21, u22, u23;
              u30, u31, u32, u33]
+            
+            u11, u12, u13 u21, u22, u23
         """
        
         # The Neumann values in a similar grid.
@@ -144,12 +146,15 @@ class LaplaceSolver:
     """
     def calculate_Neumann_boundary(self, wall):
         i1 = self.boundary_index[wall][1] # 0 left side, -1 right side
-        i2 = i1 + 1*(i1 >= 0) - 1*(i1 < 0) # It is so fun!
+        i2 = i1 + 1*(i1 >= 0) - 1*(i1 < 0)
         u_boundary = self.U[self.boundary_index[wall]] # u_i
         u_internal = self.U[:, i2] # u_(i-1) or u_(i+1)
        
-        u_neumann = (1*(i1 >= 0) - 1*(i1 < 0))*(u_internal - u_boundary)*(1/self.dx) # Tihi
-        self.set_Neumann_boundary(wall, u_neumann)
+        u_neumann = (1*(i1 >= 0) - 1*(i1 < 0))*(u_internal - u_boundary)*(1/self.dx)
+        
+        
+        # self.set_Neumann_boundary(wall, u_neumann)
+        # print(u_boundary)
         return u_neumann
 
 
@@ -199,12 +204,13 @@ class LaplaceSolver:
         # i the row that needs to be changed, j = k + 1 will be column    
         for i in row_indices:
             j = i
+            k = self.dim_X
             A[i] = 0
             A[i, j] = -3 / (self.dx ** 2)
             if j - 1 >= 0:
                 A[i, j - 1] = 1 / (self.dx ** 2) # won't be a problem I promise
-            if j - 3 >= 0:
-                A[i, j - 3] = 1 / (self.dx ** 2)
+            if j - k >= 0:
+                A[i, j - k] = 1 / (self.dx ** 2)
         return A
 
     """
@@ -279,11 +285,11 @@ class LaplaceSolver:
     def solve(self):
         # A = self.__generate_matrix_A()
         # b = self.__generate_matrix_b()
-        A,b = self.give_matrices() # YES!!
+        A, b = self.give_matrices()
         u = scipy.linalg.solve(A,b)
         U_inner = u.reshape(self.dim_X, self.dim_Y)
         if 'Neumann' in self.boundary_spec.values():
-            A = self.__Neumann_update_A(A=A) # Update
+            A = self.__Neumann_update_A(A)
             Neumann_wall = self.__get_key(self.boundary_spec, 'Neumann')
             Neumann_index = self.boundary_index[Neumann_wall][1]
             if Neumann_index == 0: # West wall
@@ -303,7 +309,7 @@ class LaplaceSolver:
         return solutions
    
 if __name__ == "__main__":
-    dx = 1 / 20
+    dx = 1 / 5
     Omega_1 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Neumann', 'South': 'Dirichlet', 'West': 'Dirichlet'})    
     Omega_2 = LaplaceSolver(1,2, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Dirichlet'})
     Omega_3 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Neumann'} )
@@ -322,7 +328,7 @@ if __name__ == "__main__":
     # Specify specific bound vals.
     Gamma_heater = 40*np.ones(Omega_1.N)
     Gamma_window = 5*np.ones(Omega_1.N)
-    Gamma_O2 = 15*np.ones(Omega_1.N - 1)
+    # Gamma_O2 = 15*np.ones(Omega_1.N - 1)
 
     Omega_1.set_Dirichlet_boundary('West', Gamma_heater)
     Omega_1.set_Dirichlet_boundary('North', 15*np.ones(Omega_1.N))
@@ -334,6 +340,8 @@ if __name__ == "__main__":
     Omega_2.set_Dirichlet_boundary('South', Gamma_window)
 
     Omega_3.set_Dirichlet_boundary('East', Gamma_heater)
-    Omega_3.set_Dirichlet_boundary('North', 15*np.ones(Omega_1.N))
-    Omega_3.set_Dirichlet_boundary('South', 15*np.ones(Omega_1.N))
-    # Omega_1.set_Neumann_boundary('East', 15*np.ones(Omega_1.N))
+    Omega_3.set_Dirichlet_boundary('North', 15*np.ones(Omega_3.N))
+    Omega_3.set_Dirichlet_boundary('South', 15*np.ones(Omega_3.N))
+    # Omega_3.set_Neumann_boundary('West', 15*np.ones(Omega_3.N))
+    U=Omega_1.get_solutions()
+    
