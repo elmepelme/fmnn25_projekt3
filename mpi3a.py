@@ -5,12 +5,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-"""
-Exactly the same as mpi.py just don't want any more if statemetns please
-i beg you i have learned my lesson
-
-"""
-
 def plot_and_save_heatmap(matrix, filename):
     plt.figure(figsize=(10, 8))
     plt.imshow(matrix, cmap='hot', interpolation='nearest')
