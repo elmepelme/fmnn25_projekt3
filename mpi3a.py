@@ -30,7 +30,6 @@ Omega_2 = LaplaceSolver(1,2, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'So
 Omega_3 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Neumann'} )
 Omega_4 = LaplaceSolver(0.5, 0.5, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Neumann'})
    
-print('here')
 # Specify specific bound vals.
 Gamma_heater = 40*np.ones(Omega_1.N)
 Gamma_window = 5*np.ones(Omega_1.N)
@@ -87,10 +86,11 @@ for i in range(n):
             dc_west = np.append(U_2[0:hr,0], bound_1)
             dc_west = omega*dc_west + (1-omega)*Omega_2.get_Dirichlet_boundary('West')
             
-            dc_east = np.append(bound_2, U_2[0:hr,-1])
+            dc_east = np.append(bound_2, bound_3)
+            dc_east = np.append(dc_east, U_2[hr+qr+2:,-1])
             dc_east = omega*dc_east + (1-omega)*Omega_2.get_Dirichlet_boundary('East')
             
-            dc_east = np.append(dc_east, U_2[(hr+1)+(qr+1):,-1])
+
             Omega_2.set_Dirichlet_boundary('West', dc_west)
             Omega_2.set_Dirichlet_boundary('East', dc_east)
             
@@ -137,7 +137,7 @@ for i in range(n):
     if rank == 4: # Omega 4
         bound_N_3 = comm.recv(source = 2, tag = 21)
         bound_N_3 = omega*bound_N_3 + (1-omega)*Omega_4.get_Neumann_boundary('West')
-        print(bound_N_3.shape[0])
+        #print(bound_N_3.shape[0])
         Omega_4.set_Neumann_boundary('West', bound_N_3)
         U_4_past = U_4
         U_4 = Omega_4.get_solutions()
