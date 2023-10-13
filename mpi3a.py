@@ -4,6 +4,14 @@ from LaplaceSolver import LaplaceSolver
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.pyplot as plt
+import sys
+
+
+"""
+Exactly the same as mpi.py just don't want any more if statemetns please
+i beg you i have learned my lesson
+
+"""
 
 def plot_and_save_heatmap(matrix, filename):
     plt.figure(figsize=(10, 8))
@@ -15,9 +23,9 @@ def plot_and_save_heatmap(matrix, filename):
 
 "Builds rooms, sets the boundary vals for each boundary,"
 "and assigns the different ranks to solve on the rooms"
-dx = (1/50)
+dx = (1/20)
 
-n = 10
+n = 5
 
 Omega_1 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Neumann', 'South': 'Dirichlet', 'West': 'Dirichlet'})    
 Omega_2 = LaplaceSolver(1,2, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Dirichlet'})
@@ -101,7 +109,7 @@ for i in range(n):
         comm.send(bound_N_1, dest = 1, tag = 2)
         comm.send(bound_N_2, dest = 3, tag = 3)
         comm.send(bound_N_3, dest = 4, tag = 21)
-        if i == 9:
+        if i == n-1:
             comm.send(U_2, dest = 0, tag = 12)
             #print(f'U1 = \n {U_1}')
     if rank == 1: #Omega 1
@@ -113,7 +121,7 @@ for i in range(n):
         U_1 = omega*U_1 + (1-omega)*U_1_past # Relaxation
         bound_1 = Omega_1.get_Dirichlet_boundary('East')
         comm.send(bound_1, dest = 2, tag = 1)
-        if i == 9:
+        if i == n-1:
             comm.send(U_1, dest = 0, tag = 11)
         
     if rank == 3: # Omega 3
@@ -125,7 +133,7 @@ for i in range(n):
         U_3 = omega*U_3 + (1-omega)*U_3_past # Relaxation
         bound_2 = Omega_3.get_Dirichlet_boundary('West')
         comm.send(bound_2, dest = 2, tag = 4)
-        if i == 9:
+        if i == n-1:
             comm.send(U_3, dest = 0, tag = 10)
     
     if rank == 4: # Omega 4
@@ -138,7 +146,7 @@ for i in range(n):
         U_4 = omega*U_4 + (1-omega)*U_4_past # Relaxation
         bound_3 = Omega_4.get_Dirichlet_boundary('West')
         comm.send(bound_3, dest = 2, tag = 20)
-        if i == 9:
+        if i == n-1:
             comm.send(U_4, dest = 0, tag = 13)
     
     if rank == 0:
@@ -175,8 +183,7 @@ for i in range(n):
     
         West = np.block( [ [NW],[SW]  ]  )
         
-        West_Middle = np.block( [West, U_2_final[0:,0:-1] ])
-        print(U_2_final.shape[0])
+        West_Middle = np.block( [West, U_2_final ])
         
         NE = U_3_final[0:, 1:]
              
@@ -194,3 +201,4 @@ for i in range(n):
         Apartment = np.block([West_Middle, East[:-1, 0:]])
         
         plot_and_save_heatmap(Apartment, 'Apartment Projekt 3a pls')
+        sys.exit()
