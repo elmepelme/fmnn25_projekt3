@@ -16,7 +16,7 @@ def plot_and_save_heatmap(matrix, filename):
 
 "Builds rooms, sets the boundary vals for each boundary,"
 "and assigns the different ranks to solve on the rooms"
-dx = (1/20)
+dx = (1/50)
 
 n = 10
 
@@ -48,10 +48,6 @@ U_1 = Omega_1.U
 U_2 = Omega_2.U
 U_3 = Omega_3.U
 
-U_1List = []
-U_2List = []
-U_3List = []
-
 omega = 0.8
 
 ## Måste köra mpirun --oversubscribe -np 3 python3 mpicom.py
@@ -70,16 +66,21 @@ for i in range(n):
             bound_1 = comm.recv(source = 1, tag = 1)
             bound_2 = comm.recv(source = 3, tag = 4)
             hr = int(Omega_2.N/2)
+            
+            # Relax boundary conditions as well
             dc_west = np.append(U_2[0:hr,0], bound_1)
+            dc_west = omega*dc_west + (1-omega)*Omega_2.get_Dirichlet_boundary('West')
+            
             dc_east = np.append(bound_2, U_2[0:hr,-1])
+            dc_east = omega*dc_east + (1-omega)*Omega_2.get_Dirichlet_boundary('East')
+            
             Omega_2.set_Dirichlet_boundary('West', dc_west)
             Omega_2.set_Dirichlet_boundary('East', dc_east)
             
             # Relaxation
             U_2_past = U_2
             U_2 = Omega_2.get_solutions()
-            U_2 = omega*U_2 + (1-omega)*U_2_past # Relaxation
-            U_2List.append(U_2)
+            #U_2 = omega*U_2 + (1-omega)*U_2_past # Relaxation
             
         bound_N_1 = Omega_2.calculate_Neumann_boundary('West')
         bound_N_1 = bound_N_1[Omega_1.N-2:-1] # Need only half values
@@ -92,10 +93,9 @@ for i in range(n):
             #print(f'U1 = \n {U_1}')
     if rank == 1: #Omega 1
         bound_N_1 = comm.recv(source = 2, tag = 2)
+        bound_N_1 = omega*bound_N_1 + (1-omega)*Omega_1.get_Neumann_boundary('East')
         Omega_1.set_Neumann_boundary('East', bound_N_1)
-        U_1_past = U_1
         U_1 = Omega_1.get_solutions()
-        U_1 = omega*U_1 + (1-omega)*U_1_past # Relaxation
         bound_1 = Omega_1.get_Dirichlet_boundary('East')
         comm.send(bound_1, dest = 2, tag = 1)
         if i == 9:
@@ -103,11 +103,11 @@ for i in range(n):
         
     if rank == 3: # Omega 3
         bound_N_2 = comm.recv(source = 2, tag = 3)
+        bound_N_2 = omega*bound_N_2 + (1-omega)*Omega_3.get_Neumann_boundary('West')
         Omega_3.set_Neumann_boundary('West', bound_N_2)
         U_3_past = U_3
         U_3 = Omega_3.get_solutions()
-        U_3 = omega*U_3 + (1-omega)*U_3_past # Relaxation
-        U_3List.append(U_3)
+        #U_3 = omega*U_3 + (1-omega)*U_3_past # Relaxation
         bound_2 = Omega_3.get_Dirichlet_boundary('West')
         comm.send(bound_2, dest = 2, tag = 4)
         if i == 9:
@@ -155,7 +155,7 @@ for i in range(n):
         East = np.block([[NE], [SE]])   
         Apartment = np.block([West_Middle, East])
         
-        plot_and_save_heatmap(Apartment, 'Apartment Projekt 3')
+        plot_and_save_heatmap(Apartment, 'Apartment Projekt 3 pls')
         
         
 
