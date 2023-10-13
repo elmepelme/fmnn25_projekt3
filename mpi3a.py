@@ -19,10 +19,9 @@ def plot_and_save_heatmap(matrix, filename):
     plt.savefig(filename + '.png')
     plt.close()
 
-
 "Builds rooms, sets the boundary vals for each boundary,"
 "and assigns the different ranks to solve on the rooms"
-dx = (1/20)
+dx = (1/50)
 
 n = 10
 
@@ -84,8 +83,13 @@ for i in range(n):
             dc_east = np.append(bound_2, bound_3)
             qr = int(Omega_2.N/4)
             
-            # There is one pixel that we are not setting correctly
-            # it has to do with the indices here but we can't figure it out
+            # Relax boundary conditions as well
+            dc_west = np.append(U_2[0:hr,0], bound_1)
+            dc_west = omega*dc_west + (1-omega)*Omega_2.get_Dirichlet_boundary('West')
+            
+            dc_east = np.append(bound_2, U_2[0:hr,-1])
+            dc_east = omega*dc_east + (1-omega)*Omega_2.get_Dirichlet_boundary('East')
+            
             dc_east = np.append(dc_east, U_2[(hr+1)+(qr+1):,-1])
             Omega_2.set_Dirichlet_boundary('West', dc_west)
             Omega_2.set_Dirichlet_boundary('East', dc_east)
@@ -108,6 +112,7 @@ for i in range(n):
             #print(f'U1 = \n {U_1}')
     if rank == 1: #Omega 1
         bound_N_1 = comm.recv(source = 2, tag = 2)
+        bound_N_1 = omega*bound_N_1 + (1-omega)*Omega_1.get_Neumann_boundary('East')
         Omega_1.set_Neumann_boundary('East', bound_N_1)
         U_1_past = U_1
         U_1 = Omega_1.get_solutions()
@@ -119,6 +124,7 @@ for i in range(n):
         
     if rank == 3: # Omega 3
         bound_N_2 = comm.recv(source = 2, tag = 3)
+        bound_N_2 = omega*bound_N_2 + (1-omega)*Omega_3.get_Neumann_boundary('West')
         Omega_3.set_Neumann_boundary('West', bound_N_2)
         U_3_past = U_3
         U_3 = Omega_3.get_solutions()
@@ -130,6 +136,7 @@ for i in range(n):
     
     if rank == 4: # Omega 4
         bound_N_3 = comm.recv(source = 2, tag = 21)
+        bound_N_3 = omega*bound_N_3 + (1-omega)*Omega_4.get_Neumann_boundary('West')
         print(bound_N_3.shape[0])
         Omega_4.set_Neumann_boundary('West', bound_N_3)
         U_4_past = U_4
@@ -192,4 +199,4 @@ for i in range(n):
 
         Apartment = np.block([West_Middle, East[:-1, 0:]])
         
-        plot_and_save_heatmap(Apartment, 'Apartment Projekt 3a')
+        plot_and_save_heatmap(Apartment, 'Apartment Projekt 3a pls')
