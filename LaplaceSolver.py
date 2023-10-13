@@ -277,11 +277,13 @@ class LaplaceSolver:
         return A,b
 # solves Au = b
     def solve(self):
-        A = self.__generate_matrix_A()
-        b = self.__generate_matrix_b()
+        # A = self.__generate_matrix_A()
+        # b = self.__generate_matrix_b()
+        A,b = self.give_matrices() # YES!!
         u = scipy.linalg.solve(A,b)
         U_inner = u.reshape(self.dim_X, self.dim_Y)
         if 'Neumann' in self.boundary_spec.values():
+            A = self.__Neumann_update_A(A=A) # Update
             Neumann_wall = self.__get_key(self.boundary_spec, 'Neumann')
             Neumann_index = self.boundary_index[Neumann_wall][1]
             if Neumann_index == 0: # West wall
@@ -334,3 +336,4 @@ if __name__ == "__main__":
     Omega_3.set_Dirichlet_boundary('East', Gamma_heater)
     Omega_3.set_Dirichlet_boundary('North', 15*np.ones(Omega_1.N))
     Omega_3.set_Dirichlet_boundary('South', 15*np.ones(Omega_1.N))
+    # Omega_1.set_Neumann_boundary('East', 15*np.ones(Omega_1.N))
