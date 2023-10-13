@@ -16,7 +16,7 @@ def plot_and_save_heatmap(matrix, filename):
 
 "Builds rooms, sets the boundary vals for each boundary,"
 "and assigns the different ranks to solve on the rooms"
-dx = (1/10)
+dx = (1/30)
 
 n = 10
 
@@ -85,10 +85,10 @@ for i in range(n):
         bound_N_1 = Omega_2.calculate_Neumann_boundary('West')
         bound_N_1 = bound_N_1[Omega_1.N-2:-1] # Need only half values
         bound_N_2 = Omega_2.calculate_Neumann_boundary('East')
-        bound_N_2 = bound_N_2[0:Omega_1.N]
+        bound_N_2 = bound_N_2[0:Omega_3.N]
         comm.send(bound_N_1, dest = 1, tag = 2)
         comm.send(bound_N_2, dest = 3, tag = 3)
-        if i == 9:
+        if i == n-1:
             comm.send(U_2, dest = 0, tag = 12)
             #print(f'U1 = \n {U_1}')
     if rank == 1: #Omega 1
@@ -98,23 +98,22 @@ for i in range(n):
         U_1 = Omega_1.get_solutions()
         bound_1 = Omega_1.get_Dirichlet_boundary('East')
         comm.send(bound_1, dest = 2, tag = 1)
-        if i == 9:
+        if i == n-1:
             comm.send(U_1, dest = 0, tag = 11)
         
     if rank == 3: # Omega 3
         bound_N_2 = comm.recv(source = 2, tag = 3)
         
-        bound_N_2 = omega*bound_N_2 + (1-omega)*Omega_3.get_Neumann_boundary('West')
-        # bound_N_2[0] = 15
-        # print(bound_N_2)
+        bound_N_2 = (omega*bound_N_2) + ((1-omega)*Omega_3.get_Neumann_boundary('West'))
+        # bound_N_2 = bound_N_2[1:-1]
+        
         Omega_3.set_Neumann_boundary('West', bound_N_2)
         U_3_past = U_3
 
         U_3 = Omega_3.get_solutions()
-        #U_3 = omega*U_3 + (1-omega)*U_3_past # Relaxation
         bound_2 = Omega_3.get_Dirichlet_boundary('West')
         comm.send(bound_2, dest = 2, tag = 4)
-        if i == 9:
+        if i == n-1:
             comm.send(U_3, dest = 0, tag = 10)
     
     if rank == 0:
