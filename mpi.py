@@ -7,16 +7,16 @@ import matplotlib.pyplot as plt
 
 def plot_and_save_heatmap(matrix, filename):
     plt.figure(figsize=(10, 8))
-    plt.imshow(matrix, cmap='hot', interpolation='nearest')
+    plt.imshow(matrix, cmap='hot', interpolation='nearest', vmin = -10, vmax= 40)
     plt.colorbar(label='Value')
     plt.title('Heatmap of ' + filename)
     plt.savefig(filename + '.png')
     plt.close()
 
-
+# mpiexec /np 4 python3 mpicom.py
 "Builds rooms, sets the boundary vals for each boundary,"
 "and assigns the different ranks to solve on the rooms"
-dx = (1/50)
+dx = (1/20)
 
 n = 10
 
@@ -48,6 +48,11 @@ U_1 = Omega_1.U
 U_2 = Omega_2.U
 U_3 = Omega_3.U
 
+# Start with 15 everywhere
+U_1 = 15*np.ones((Omega_1.N, Omega_1.M))
+U_2 = 15*np.ones((Omega_2.N, Omega_2.M))
+U_3 = 15*np.ones((Omega_3.N, Omega_3.M))
+
 omega = 0.8
 
 ## Måste köra mpirun --oversubscribe -np 3 python3 mpicom.py
@@ -66,12 +71,11 @@ for i in range(n):
             bound_1 = comm.recv(source = 1, tag = 1)
             bound_2 = comm.recv(source = 3, tag = 4)
             hr = int(Omega_2.N/2)
-            
             # Relax boundary conditions as well
             dc_west = np.append(U_2[0:hr,0], bound_1)
             dc_west = omega*dc_west + (1-omega)*Omega_2.get_Dirichlet_boundary('West')
             
-            dc_east = np.append(bound_2, U_2[0:hr,-1])
+            dc_east = np.append(bound_2, U_2[hr+1:,-1])
             dc_east = omega*dc_east + (1-omega)*Omega_2.get_Dirichlet_boundary('East')
             
             Omega_2.set_Dirichlet_boundary('West', dc_west)
@@ -88,7 +92,7 @@ for i in range(n):
         bound_N_2 = bound_N_2[0:Omega_1.N]
         comm.send(bound_N_1, dest = 1, tag = 2)
         comm.send(bound_N_2, dest = 3, tag = 3)
-        if i == 9:
+        if i == n-1:
             comm.send(U_2, dest = 0, tag = 12)
             #print(f'U1 = \n {U_1}')
     if rank == 1: #Omega 1
@@ -98,7 +102,7 @@ for i in range(n):
         U_1 = Omega_1.get_solutions()
         bound_1 = Omega_1.get_Dirichlet_boundary('East')
         comm.send(bound_1, dest = 2, tag = 1)
-        if i == 9:
+        if i == n-1:
             comm.send(U_1, dest = 0, tag = 11)
         
     if rank == 3: # Omega 3
@@ -110,7 +114,7 @@ for i in range(n):
         #U_3 = omega*U_3 + (1-omega)*U_3_past # Relaxation
         bound_2 = Omega_3.get_Dirichlet_boundary('West')
         comm.send(bound_2, dest = 2, tag = 4)
-        if i == 9:
+        if i == n-1:
             comm.send(U_3, dest = 0, tag = 10)
     
     if rank == 0:
