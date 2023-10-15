@@ -5,14 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.pyplot as plt
 import sys
-
-
-"""
-Exactly the same as mpi.py just don't want any more if statemetns please
-i beg you i have learned my lesson
-
-"""
-
+## same as mpi.py just copy paste and added another rank 
 def plot_and_save_heatmap(matrix, filename):
     plt.figure(figsize=(10, 8))
     plt.imshow(matrix, cmap='hot', interpolation='nearest')
@@ -23,7 +16,7 @@ def plot_and_save_heatmap(matrix, filename):
 
 "Builds rooms, sets the boundary vals for each boundary,"
 "and assigns the different ranks to solve on the rooms"
-dx = (1/20)
+dx = (1/50)
 
 n = 5
 
@@ -54,9 +47,9 @@ Omega_3.set_Dirichlet_boundary('East', Gamma_heater)
 Omega_3.set_Dirichlet_boundary('North', Gamma_0)
 Omega_3.set_Dirichlet_boundary('South', Gamma_0)
 
-Omega_4.set_Dirichlet_boundary('South', 40*np.ones(Omega_4.N))
+Omega_4.set_Dirichlet_boundary('South', wall*np.ones(Omega_4.N))
 Omega_4.set_Dirichlet_boundary('North', wall*np.ones(Omega_4.N))
-Omega_4.set_Dirichlet_boundary('East', wall*np.ones(Omega_4.N))
+Omega_4.set_Dirichlet_boundary('East', 40*np.ones(Omega_4.N))
 
 U_1 = Omega_1.U
 U_2 = Omega_2.U
