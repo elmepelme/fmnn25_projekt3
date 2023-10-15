@@ -1,20 +1,8 @@
 import numpy as np
 import scipy
 from scipy import linalg
-from scipy.sparse import diags, csr_matrix
-from scipy.sparse.linalg import spsolve
-"""
-    Dirichlet funkar nu väldigt bra.
-   
-    Samma gäller Neumann nu också. Verkar funka bra efter några korta test.
-   
-    Rektangulära rum funkar.
-   
-    Vi kan se hur varje internal
-    punkt är precis medelvärdet av omringande punkter så som värmeledning
-    ska funka.
-   
-"""
+import matplotlib.pyplot as plt
+
 # Solves the laplace equation uxx + uyy = 0 on a rectangle with given
 # width and height
 """
@@ -150,7 +138,7 @@ class LaplaceSolver:
         u_boundary = self.U[self.boundary_index[wall]] # u_i
         u_internal = self.U[:, i2] # u_(i-1) or u_(i+1)
        
-        u_neumann = (1*(i1 >= 0) - 1*(i1 < 0))*(u_internal - u_boundary)*(1/self.dx)
+        u_neumann = (u_internal - u_boundary)*(1/self.dx)
         
         
         # self.set_Neumann_boundary(wall, u_neumann)
@@ -164,6 +152,7 @@ class LaplaceSolver:
     def __generate_matrix_A(self):  
         size = self.dim_X*self.dim_Y
         A = np.zeros((size, size))
+
         # Fill the matrix
         for i in range(size):
             # Diagonal value
@@ -189,6 +178,7 @@ class LaplaceSolver:
     # Updates the matrix A. Goes through each row that corresponds to
     # Neumann condition and changes it! According to slide 27 of lecture    
     # Only implemented for Neumann on East or West wall.
+
     def __Neumann_update_A(self, A):
         size = self.dim_X*self.dim_Y
         for wall, condition in self.boundary_spec.items():
@@ -200,17 +190,35 @@ class LaplaceSolver:
                     row_indices = [i * (self.M-1) for i in range(self.N-2)]
                 else:
                     row_indices = [self.M - 2 + i * (self.M-1) for i in range(self.N-2)]
-               
-        # i the row that needs to be changed, j = k + 1 will be column    
-        for i in row_indices:
+        
+        Neumann_wall = self.__get_key(self.boundary_spec, 'Neumann')
+        print(Neumann_wall)
+        i1 = self.boundary_index[Neumann_wall][1] # 0 left side, -1 right side
+        print(f'i1 = {i1}')
+        i2 = i1 + 1*(i1 >= 0) - 1*(i1 < 0) # i2 is + or - 1 depending on
+        # where the Neumann condition is located
+        print(f'i2 = {i2}')
+        
+        ## Notera många ändringar har skett här. När detta ändrades
+        # ser lösningen ännu sämre ut nu, men boundary conditionen 
+        # där vi har 0 är iaf symmetrisk för tillfället. Jag kollar
+        # om felet ligger i update b
+        
+        # Jag tror verkligen detta är rätt nu asså
+        for i in row_indices: # row indices är rader i A där vi har Neumann punkter
             j = i
-            k = self.dim_X
+            k = self.U.shape[0] - 1
+            print(k)
             A[i] = 0
             A[i, j] = -3 / (self.dx ** 2)
-            if j - 1 >= 0:
-                A[i, j - 1] = 1 / (self.dx ** 2) # won't be a problem I promise
+            #print(f'A size is {A.size}')
+           # print(f'A.shape {A.shape}')
+            if j + i2 >= 0 and j + i2 < A.shape[0]:
+                A[i, j + i2] = 1 / (self.dx ** 2)
             if j - k >= 0:
-                A[i, j - k] = 1 / (self.dx ** 2)
+                A[i, j - k] =  1 / (self.dx ** 2)
+            if j + k < A.shape[0]:
+                A[j, j + k] = 1 / (self.dx ** 2)
         return A
 
     """
@@ -240,7 +248,10 @@ class LaplaceSolver:
    
     """
     def __generate_matrix_b(self):
-        B = np.zeros((self.dim_X, self.dim_Y))
+        B = np.zeros((self.dim_X, self.dim_Y)) # B corresponds to U, so 
+        # B[i,j] is right hand side for the equation for the equation 
+        # for the unknown U[i,j]
+        B_2 = np.zeros((self.dim_X*self.dim_Y, self.dim_X*self.dim_Y))
         # Note that the boundary values of the grid are stored on
         # boundary of the matrix U (or dU) which contains the grid points!
         # We take [1:-1] because we want the "inner" boundary points
@@ -248,22 +259,25 @@ class LaplaceSolver:
         for wall, condition in self.boundary_spec.items():
             index = self.boundary_index[wall]
             if condition == 'Dirichlet':
-                # Ugly solution :(
-                # Only when we are updating the west or east walls will we
-                # go in here to update the boundary matrix B,
-                # need to play with indices because Neumann boundaries
-                # are clunky ...
-                if 'Neumann' in self.boundary_spec.values() and (index[0] == 0 or index[0] == -1):
+                if 'Neumann' in self.boundary_spec.values() and (wall == 'North' or wall == 'South'):
                     Neumann_wall = self.__get_key(self.boundary_spec, 'Neumann')
-                    Neumann_index = self.boundary_index[Neumann_wall][1]
-                    if Neumann_index == -1: # East wall
+                    if Neumann_wall == 'East':
                         B[index][0:-1] -= self.U[index][1:-1] / (self.dx ** 2)
-                    elif Neumann_index == 0: # West wall
+                    elif Neumann_wall == 'West':
                         B[index][1:] -= self.U[index][1:-1] / (self.dx ** 2)
                 else:
                     B[index] -= self.U[index][1:-1] / (self.dx ** 2)
             else:
                 B[index] -= self.dU[index][1:-1] / (self.dx)
+        # For the upper corner points:
+        if 'Neumann' in self.boundary_spec.values():
+            Neumann_wall = self.__get_key(self.boundary_spec, 'Neumann')
+            if Neumann_wall == 'West':
+                B[0,0] -= self.U[0,0] / (self.dx ** 2)
+                B[-1, 0] -= self.U[-1,0] / (self.dx ** 2)
+            else:
+                B[0, -1] -= self.U[0, -1] / (self.dx ** 2)
+                B[-1, -1] -= self.U[-1, -1] / (self.dx ** 2)
         b = B.reshape(-1,1) # Back to column
         return b
    
@@ -273,8 +287,8 @@ class LaplaceSolver:
             if val == value:
                 return key
         return None
+    
     def give_matrices(self):
-       
         A = self.__generate_matrix_A()
         b = self.__generate_matrix_b()
         if 'Neumann' in self.boundary_spec.values():
@@ -283,19 +297,15 @@ class LaplaceSolver:
         return A,b
 # solves Au = b
     def solve(self):
-        # A = self.__generate_matrix_A()
-        # b = self.__generate_matrix_b()
         A, b = self.give_matrices()
         u = scipy.linalg.solve(A,b)
         U_inner = u.reshape(self.dim_X, self.dim_Y)
         if 'Neumann' in self.boundary_spec.values():
-            A = self.__Neumann_update_A(A)
             Neumann_wall = self.__get_key(self.boundary_spec, 'Neumann')
-            Neumann_index = self.boundary_index[Neumann_wall][1]
-            if Neumann_index == 0: # West wall
-                self.U[1:self.N-1, 0:self.M-1] = U_inner
+            if Neumann_wall == 'West': # West wall
+                self.U[1:-1, 0:-1] = U_inner
             else:
-                self.U[1:self.N-1, 1:self.M] = U_inner
+                self.U[1:-1, 1:] = U_inner
         else:
             self.U[1:self.N-1, 1:self.M-1] = U_inner
         return u, U_inner, self.U
@@ -307,29 +317,32 @@ class LaplaceSolver:
     def get_solutions(self):
         _, _, solutions = self.solve()
         return solutions
-   
+  
+def plot_and_save_heatmap(matrix, filename):
+    plt.figure(figsize=(10, 8))
+    plt.imshow(matrix, cmap='hot', interpolation='nearest')
+    plt.colorbar(label='Value')
+    plt.title('Heatmap of ' + filename)
+    plt.savefig(filename + '.png')
+    plt.close()
+    
 if __name__ == "__main__":
-    dx = 1 / 5
+    dx = 1 / 10
+    
+
     Omega_1 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Neumann', 'South': 'Dirichlet', 'West': 'Dirichlet'})    
     Omega_2 = LaplaceSolver(1,2, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Dirichlet'})
     Omega_3 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Neumann'} )
-    Omega_3 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Neumann'} )
-    Omega_4 = LaplaceSolver(0.5, 0.5, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Neumann'})
-    hr = int(Omega_2.N/2)
-    qr = int(Omega_2.N/4)
-    U_4 = Omega_4.U
-    bound_1 = np.ones(Omega_2.U.shape[0]-hr)
-    U_2 = Omega_2.U
-    Omega_2.set_Dirichlet_boundary('West', np.append(U_2[0:hr,0], bound_1))
-    b1 = Omega_1.get_Dirichlet_boundary('East')
-    bound_N_1 = Omega_2.calculate_Neumann_boundary('West')
-    bound_N_2 = Omega_2.calculate_Neumann_boundary('East')
+    #Omega_3 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Dirichlet'} )
+    #Omega_4 = LaplaceSolver(0.5, 0.5, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Neumann'})
+
    
     # Specify specific bound vals.
-    Gamma_heater = 40*np.ones(Omega_1.N)
-    Gamma_window = 5*np.ones(Omega_1.N)
+    Gamma_heater = 40*np.ones(Omega_3.N)
+    Gamma_window = 5*np.ones(Omega_3.N)
     # Gamma_O2 = 15*np.ones(Omega_1.N - 1)
 
+    
     Omega_1.set_Dirichlet_boundary('West', Gamma_heater)
     Omega_1.set_Dirichlet_boundary('North', 15*np.ones(Omega_1.N))
     Omega_1.set_Dirichlet_boundary('South', 15*np.ones(Omega_1.N))
@@ -342,6 +355,13 @@ if __name__ == "__main__":
     Omega_3.set_Dirichlet_boundary('East', Gamma_heater)
     Omega_3.set_Dirichlet_boundary('North', 15*np.ones(Omega_3.N))
     Omega_3.set_Dirichlet_boundary('South', 15*np.ones(Omega_3.N))
-    # Omega_3.set_Neumann_boundary('West', 15*np.ones(Omega_3.N))
-    U=Omega_1.get_solutions()
-    
+    Omega_3.set_Neumann_boundary('West', 0*np.ones(Omega_3.N))
+    #Omega_3.set_Dirichlet_boundary('West', 15*np.ones(Omega_3.N))
+    U = Omega_3.get_solutions()
+    U_2 = Omega_2.get_solutions()
+    U_1 = Omega_1.get_solutions()
+    plt.figure(figsize=(10, 8))
+    plt.imshow(U, cmap='hot', interpolation='nearest', vmin=0, vmax=40)
+    plt.colorbar(label='Value')
+    #plt.title('Heatmap of ' + filename)
+    #plot_and_save_heatmap(U, 'Test på Omega3 bara')
