@@ -268,17 +268,14 @@ class LaplaceSolver:
                 if 'Neumann' in self.boundary_spec.values() and (wall == 'North' or wall == 'South'):
                     Neumann_wall = self.__get_key(self.boundary_spec, 'Neumann')
                     if Neumann_wall == 'East':
-                        B[index][0:-1] = -self.U[index][1:-1] / (self.dx ** 2)
+                        B[index][0:-1] -= self.U[index][1:-1] / (self.dx ** 2)
                     elif Neumann_wall == 'West':
-                        B[index][1:] = -self.U[index][1:-1] / (self.dx ** 2)
+                        B[index][1:] -= self.U[index][1:-1] / (self.dx ** 2)
                 else:
-                    B[index] = -self.U[index][1:-1] / (self.dx ** 2)
+                    B[index] -= self.U[index][1:-1] / (self.dx ** 2)
             else:
-                B[index] = -self.dU[index][1:-1] / (self.dx)
+                B[index] -= self.dU[index][1:-1] / (self.dx)
         b = B.reshape(-1,1) # Back to column
-        b[0] = -self.U[0,0] / (self.dx ** 2) # ska vara if beroende på 
-        # om Neumann är på east eller west men detta var bara test för att 
-        # se om vi behövde lägga med dirichlet värdet också för första punkten
         return b
    
     # Bad solution ...
