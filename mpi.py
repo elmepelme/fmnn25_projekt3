@@ -16,7 +16,7 @@ def plot_and_save_heatmap(matrix, filename):
 
 "Builds rooms, sets the boundary vals for each boundary,"
 "and assigns the different ranks to solve on the rooms"
-dx = (1/30)
+dx = (1/50)
 
 n = 10
 
@@ -24,7 +24,7 @@ Omega_1 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Neumann', 'Sout
 Omega_2 = LaplaceSolver(1,2, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Dirichlet'})
 Omega_3 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Neumann'} )
 # Omega_4 = LaplaceSolver(0.5, 0.5, dx, {'North': 'Dirichlet', 'East': 'Dirichlet', 'South': 'Dirichlet', 'West': 'Neumann'})
-   
+
 #print('here')
 # Specify specific bound vals.
 Gamma_heater = 40*np.ones(Omega_1.N)
@@ -67,11 +67,14 @@ for i in range(n):
             bound_2 = comm.recv(source = 3, tag = 4)
             hr = int(Omega_2.N/2)
             
-            # Relax boundary conditions as well
-            dc_west = np.append(U_2[0:hr,0], bound_1)
+            dc_west = Omega_2.get_Dirichlet_boundary('West')
+            dc_west[Omega_2.N - bound_1.size:] = bound_1
+            #dc_west = np.append(U_2[0:hr,0], bound_1)
             dc_west = omega*dc_west + (1-omega)*Omega_2.get_Dirichlet_boundary('West')
 
-            dc_east = np.append(bound_2, U_2[hr+1:,-1])
+            dc_east = Omega_2.get_Dirichlet_boundary('East')
+            dc_east[0:bound_2.size] = bound_2
+            #dc_east = np.append(bound_2, U_2[hr+1:,-1])
             dc_east = omega*dc_east + (1-omega)*Omega_2.get_Dirichlet_boundary('East')
             
             Omega_2.set_Dirichlet_boundary('West', dc_west)
@@ -83,7 +86,7 @@ for i in range(n):
             #U_2 = omega*U_2 + (1-omega)*U_2_past # Relaxation
             
         bound_N_1 = Omega_2.calculate_Neumann_boundary('West')
-        bound_N_1 = bound_N_1[Omega_1.N-2:-1] # Need only half values
+        bound_N_1 = bound_N_1[Omega_1.N-1:] # Need only half values
         bound_N_2 = Omega_2.calculate_Neumann_boundary('East')
         bound_N_2 = bound_N_2[0:Omega_3.N]
         comm.send(bound_N_1, dest = 1, tag = 2)
