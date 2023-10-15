@@ -4,7 +4,18 @@ from scipy import linalg
 from scipy.sparse import diags, csr_matrix
 from scipy.sparse.linalg import spsolve
 import matplotlib.pyplot as plt
-
+"""
+    Dirichlet funkar nu väldigt bra.
+   
+    Samma gäller Neumann nu också. Verkar funka bra efter några korta test.
+   
+    Rektangulära rum funkar.
+   
+    Vi kan se hur varje internal
+    punkt är precis medelvärdet av omringande punkter så som värmeledning
+    ska funka.
+   
+"""
 # Solves the laplace equation uxx + uyy = 0 on a rectangle with given
 # width and height
 """
@@ -215,7 +226,7 @@ class LaplaceSolver:
         # ser lösningen ännu sämre ut nu, men boundary conditionen 
         # där vi har 0 är iaf symmetrisk för tillfället. Jag kollar
         # om felet ligger i update b
-        for i in row_indices:
+        for i in row_indices: # row indices är rader där vi har Neumann punkter
             j = i
             k = self.dim_X
             A[i] = 0
@@ -254,7 +265,9 @@ class LaplaceSolver:
    
     """
     def __generate_matrix_b(self):
-        B = np.zeros((self.dim_X, self.dim_Y))
+        B = np.zeros((self.dim_X, self.dim_Y)) # B corresponds to U, so 
+        # B[i,j] is right hand side for the equation for the equation 
+        # for the unknown U[i,j]
         B_2 = np.zeros((self.dim_X*self.dim_Y, self.dim_X*self.dim_Y))
         # Note that the boundary values of the grid are stored on
         # boundary of the matrix U (or dU) which contains the grid points!
