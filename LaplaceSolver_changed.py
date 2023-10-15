@@ -4,18 +4,7 @@ from scipy import linalg
 from scipy.sparse import diags, csr_matrix
 from scipy.sparse.linalg import spsolve
 import matplotlib.pyplot as plt
-"""
-    Dirichlet funkar nu väldigt bra.
-   
-    Samma gäller Neumann nu också. Verkar funka bra efter några korta test.
-   
-    Rektangulära rum funkar.
-   
-    Vi kan se hur varje internal
-    punkt är precis medelvärdet av omringande punkter så som värmeledning
-    ska funka.
-   
-"""
+
 # Solves the laplace equation uxx + uyy = 0 on a rectangle with given
 # width and height
 """
@@ -287,7 +276,9 @@ class LaplaceSolver:
             else:
                 B[index] = -self.dU[index][1:-1] / (self.dx)
         b = B.reshape(-1,1) # Back to column
-        b[0] = -self.U[0,0] / (self.dx ** 2)
+        b[0] = -self.U[0,0] / (self.dx ** 2) # ska vara if beroende på 
+        # om Neumann är på east eller west men detta var bara test för att 
+        # se om vi behövde lägga med dirichlet värdet också för första punkten
         return b
    
     # Bad solution ...
