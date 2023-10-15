@@ -215,16 +215,19 @@ class LaplaceSolver:
         # ser lösningen ännu sämre ut nu, men boundary conditionen 
         # där vi har 0 är iaf symmetrisk för tillfället. Jag kollar
         # om felet ligger i update b
-        for i in row_indices: # row indices är rader där vi har Neumann punkter
+        for i in row_indices: # row indices är rader i A där vi har Neumann punkter
             j = i
             k = self.dim_X
             A[i] = 0
             A[i, j] = -3 / (self.dx ** 2)
             print(f'A size is {A.size}')
-            if j + i2 >= 0 and j + i2 < A.size:
+            print(f'A.shape {A.shape}')
+            if j + i2 >= 0 and j + i2 < A.shape[0]:
                 A[i, j + i2] = 1 / (self.dx ** 2)
             if j - k >= 0:
-                A[i, j - k] = 1 / (self.dx ** 2)
+                A[i, j - k] = (1/2) / (self.dx ** 2)
+            if j + k < A.shape[0]:
+                A[j, j + k] = (1/2) / (self.dx ** 2)
         return A
 
     """
@@ -275,6 +278,9 @@ class LaplaceSolver:
                     B[index] -= self.U[index][1:-1] / (self.dx ** 2)
             else:
                 B[index] -= self.dU[index][1:-1] / (self.dx)
+        # For the corner points:
+        #B[0,0] -= self.U[0,0]
+        #B[-1,0] -= self.U[-1, 0]
         b = B.reshape(-1,1) # Back to column
         return b
    
@@ -324,7 +330,7 @@ def plot_and_save_heatmap(matrix, filename):
     plt.close()
     
 if __name__ == "__main__":
-    dx = 1 / 4
+    dx = 1 / 10
     
     """
     Omega_1 = LaplaceSolver(1,1, dx, {'North': 'Dirichlet', 'East': 'Neumann', 'South': 'Dirichlet', 'West': 'Dirichlet'})    
@@ -357,7 +363,7 @@ if __name__ == "__main__":
     #Omega_3.set_Dirichlet_boundary('West', 15*np.ones(Omega_3.N))
     U = Omega_3.get_solutions()
     plt.figure(figsize=(10, 8))
-    plt.imshow(U, cmap='hot', interpolation='nearest')
+    plt.imshow(U, cmap='hot', interpolation='nearest', vmin=0, vmax=40)
     plt.colorbar(label='Value')
     #plt.title('Heatmap of ' + filename)
     #plot_and_save_heatmap(U, 'Test på Omega3 bara')
